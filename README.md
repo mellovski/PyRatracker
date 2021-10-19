@@ -7,7 +7,9 @@ Co-Orientador: Prof. Geucimar Brilhador
 
 Aluna e desenvolvedora Agatha Leyton
 
-
 Linguagem: Python
 
 Bibliotecas: OpenCV, Tkinter, XlsxWriter
+
+# Instalação
+Baixe o arquivo ZIP e descompacte-o.
