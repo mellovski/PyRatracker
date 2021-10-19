@@ -1,0 +1,318 @@
+# area_em_pixel area_do_campo
+import xlsxwriter
+import cv2
+import numpy as np
+import tkinter as tk
+from tkinter.filedialog import askopenfilename
+import ntpath
+from datetime import datetime
+
+filtro = 0 #zera filtro
+
+window = tk.Tk()
+window.title("PyRatracker")
+window.configure(background="#1A224F")
+greeting = tk.Label(text="Rastreador de Ratos", fg="white", bg="#1B1F49", width=35, height=3)
+perguntafiltro = tk.Label(text="Usar filtro?", fg="#1A224F", bg="#c354be", width=35, height=3)
+greeting.pack()
+perguntafiltro.pack()
+
+def filtro_aceito():
+    global filtro
+    filtro = 1
+    window.quit()
+
+buttonnn = tk.Button(text="Não", width=25, height=5, bg="#C50ED2", fg="#1A224F") #botao negado => não altera filtro
+buttonss = tk.Button(text="Sim",width=25,height=5,bg="#16A085", fg="#1A224F", command=filtro_aceito) #botão aceito => conjuga o filtro
+entry = tk.Entry()
+buttonss.pack()
+buttonnn.pack()
+
+
+def enter_pressionado(event):
+    if event.keysym == "Return":
+        global area_campo
+        area_campo = entry.get()
+        window.quit()
+
+
+# Atrelha o enter a função enter_pressionado()
+window.bind("<Key>", enter_pressionado)
+
+
+def botao_pressionado(event):
+    print("The button was clicked!")
+    window.quit()
+
+
+buttonnn.bind("<Button-1>", botao_pressionado)
+window.mainloop()
+buttonnn.destroy()
+buttonss.destroy()
+perguntafiltro.destroy()
+
+#cabeçalho
+perguntafiltro = tk.Label(text="Qual arena?", fg="#1A224F", bg="#c354be", width=35, height=3)
+perguntafiltro.pack()
+
+
+def func_campo_aberto():
+    global arena
+    arena = 1
+    window.quit()
+
+
+def func_cruz():
+    global arena
+    arena = 2
+    window.quit()
+
+
+def func_morris():
+    global arena
+    arena = 3
+    window.quit()
+
+
+def open_file():
+    """Open a file for editing."""
+    global filepath
+    filepath = askopenfilename(
+        filetypes=[("Video Files", "*.mp4"), ("All Files", "*.*")]
+    )
+    if not filepath:
+        return
+    window.destroy()
+
+
+button1 = tk.Button(text="Campo Aberto",width=25,height=5,bg="#16A085",fg="white",command=func_campo_aberto)
+button2 = tk.Button(text="Labirinto em Cruz Elevado",width=25,height=5,bg="#C50ED2",fg="white",command=func_cruz)
+button3 = tk.Button(text="Labirinto de Morris",width=25,height=5,bg="#5787AD",fg="white",command=func_morris)
+
+button1.pack()
+button2.pack()
+button3.pack()
+
+window.mainloop()
+
+button1.destroy()
+button2.destroy()
+button3.destroy()
+perguntafiltro.destroy()
+if (arena == 2):
+    perguntafiltro = tk.Label(text="Área do braço aberto em cm2: ", fg="white", bg="#c354be", width=35, height=3)
+else:
+    perguntafiltro = tk.Label(text="Área total em cm2: ", fg="white", bg="#c354be", width=35, height=3)
+
+perguntafiltro.pack()
+entry = tk.Entry()
+entry.pack()
+window.bind("<Key>", enter_pressionado)
+window.mainloop()
+while (area_campo.isdigit()) == False:
+    window.mainloop()
+
+buttonopen = tk.Button(text="Procurar Video",width=25,height=5,bg="#c354be",fg="white",command=open_file)
+entry.destroy()
+perguntafiltro.destroy()
+buttonopen.pack()
+window.mainloop()
+area_campo = float(area_campo)
+first = 0
+contador = 0
+frames_que_passaram = 0
+historico_centro_de_massa = []
+posicao_braco = []
+dist = []
+
+with open(filepath, "r") as capture:
+    ntpath.basename(filepath)
+    capture = cv2.VideoCapture(filepath)
+
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+fgbg = cv2.createBackgroundSubtractorKNN()
+fps = capture.get(cv2.CAP_PROP_FPS)
+frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+ret, frame = capture.read()
+height, width = frame.shape[:2]
+criacao = np.zeros((height, width, 3), np.uint8)
+criacao.fill(255)
+
+if (arena == 2):
+    cv2.putText(frame, "Selecione os bracos abertos", (20, 20), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1,
+                cv2.LINE_AA)
+    r1 = cv2.selectROI(frame)
+    coordenadas_aberto1 = (r1[0], r1[1])
+    coordenadas_aberto2 = ((r1[2] + r1[0]), (r1[3] + r1[1]))
+    area_em_pixels = (r1[2]) * (r1[3])
+
+    cv2.putText(frame, "Selecione os bracos fechados", (20, 40), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1,
+                cv2.LINE_AA)
+    r2 = cv2.selectROI(frame)
+    coordenadas_fechado1 = (r2[0], r2[1])
+    coordenadas_fechado2 = ((r2[0] + r2[2]), (r2[1] + r2[3]))
+
+    cv2.rectangle(criacao, coordenadas_aberto1, coordenadas_aberto2, (0, 0, 0), -1)
+    cv2.rectangle(criacao, coordenadas_fechado1, coordenadas_fechado2, (0, 0, 0), -1)
+
+elif (arena == 1):
+    r1 = cv2.selectROI(frame)
+    cv2.rectangle(criacao, (r1[0], r1[1]), ((r1[2] + r1[0]), (r1[3] + r1[1])), (0, 0, 0), -1)
+    area_em_pixels = (r1[3]) * (r1[2])
+
+elif (arena == 3):
+    r = cv2.selectROI(frame)
+    center = (int((r[0] + r[0] + r[2]) / 2), int((r[1] + r[1] + r[3]) / 2))
+    radius = center[0] - r[0]
+    cv2.circle(criacao, center, radius, (0, 0, 0), -1)
+    area_em_pixels = np.pi * (radius ** 2)
+
+cv2.destroyAllWindows()
+
+# calculo da escala cm/ pixel (multiplicar em distancias com metagrem em pixel pra tirar em cm
+
+fracao = (area_campo ** 0.5) / (area_em_pixels ** 0.5)
+
+
+# deixa um pouco desfocado mas acho q nem precisa tanto
+def denoise(frame):
+    frame = cv2.medianBlur(frame, 5)
+    frame = cv2.addWeighted(frame, 4, cv2.blur(frame, (30, 30)), -4, 128)
+    return frame
+
+
+# subtracao do video nele mesmo com a funcao KNN e kernel????
+def subtracao(frame):
+    fgmask = fgbg.apply(frame)
+    rato = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+
+    return rato
+
+
+# faz o contorno, pega o centro de massa e o retangulo verde
+def contornasso(rato, frame, conservado):
+    edged = cv2.Canny(rato, 30, 200)
+    thresh = cv2.threshold(edged, 0, 200, cv2.THRESH_BINARY)[1]
+    thresh = cv2.dilate(thresh, None, iterations=1)
+    cv2.imshow('ratoooo', rato)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    x = 0
+    maior = 0
+    if len(contours) != 0:
+        while x < len(contours):
+            if maior <= len(contours[x]):
+                maior = len(contours[x])
+                index = x
+            x += 1
+        rato = cv2.cvtColor(rato, cv2.COLOR_GRAY2RGB)
+        m = cv2.moments(contours[index])
+        cx = int(m["m10"] / m["m00"])
+        cy = int(m["m01"] / m["m00"])
+
+        contour_sizes = [(cv2.contourArea(contour), contour) for contour in contours]
+        biggest_contour = max(contour_sizes, key=lambda x: x[0])[1]
+
+        if (cv2.contourArea(biggest_contour) == cv2.contourArea(contours[index])):
+            cv2.drawContours(rato, biggest_contour, -1, (0, 105, 233), 2)
+
+        cv2.circle(rato, (cx, cy), 1, (0, 0, 255), 3)
+
+        (x1x, x1y, x1w, x1h) = cv2.boundingRect(biggest_contour)
+        retanguloso = ((x1x, x1y), (x1x + x1w, x1y + x1h))
+        cv2.rectangle(rato, (x1x, x1y), (x1x + x1w, x1y + x1h), (0, 255, 0), 2)
+        cv2.imshow("reteter", rato)
+
+        # cv2.imshow('center_of_mass', rato)
+        cv2.circle(conservado, (centro_de_massa), 5, (0, 0, 255), -1)
+        cv2.rectangle(conservado, retanguloso[0], retanguloso[1], (0, 255, 0), 2)
+        cv2.imshow('center_of_mass', conservado)
+        return (cx, cy)
+
+
+# aqui eh onde as coisas sao chamadas
+while True:
+    ret, frame = capture.read()
+    conservado = frame
+    frame = cv2.add(frame, criacao)
+    if filtro == 1:
+        frame = denoise(frame)
+    rato = subtracao(frame)
+    centro_de_massa = contornasso(rato, frame, conservado)
+    frames_que_passaram += 1
+
+    if frames_que_passaram >= (frame_count - fps):
+        break
+
+    # analises posteriores durante o video
+
+    # onde nos bracos o rato ta
+    if (centro_de_massa != (None)):
+        historico_centro_de_massa.append(centro_de_massa)
+
+        if (arena == 2):
+            if (coordenadas_fechado1[0] < centro_de_massa[0] < coordenadas_fechado2[0]) and (
+                    coordenadas_fechado1[1] < centro_de_massa[1] < coordenadas_fechado2[1]):
+                if (coordenadas_aberto1[0] < centro_de_massa[0] < coordenadas_aberto2[0]) and (
+                        coordenadas_aberto1[1] < centro_de_massa[1] < coordenadas_aberto2[1]):
+                    onde_esta_no_cruz = "Meio"
+                # print("Meio")
+                else:
+                    onde_esta_no_cruz = "Braço Fechado"
+                #  print("Fechado")
+            elif (coordenadas_aberto1[0] < centro_de_massa[0] < coordenadas_aberto2[0]) and (
+                    coordenadas_aberto1[1] < centro_de_massa[1] < coordenadas_aberto2[1]):
+                onde_esta_no_cruz = "Braço Aberto"
+            # print("Aberto")
+            else:
+                onde_esta_no_cruz = "Fora de Area"
+                # print("------------------Fora de Area--------------")
+            posicao_braco.append(onde_esta_no_cruz)
+
+    k = cv2.waitKey(30) & 0xff
+    if k == 27:
+        break
+
+""" Planilha Excel pra armazenar os dados das análises
+Para não sobrecarregar o código, os registros são feitos ao final, armazenando as coordenadas e cálculos
+nos vetores de histórico de centro de massa, e configura a planilha com fórmulas base.
+"""
+now = datetime.now()
+dt_string = now.strftime("%d_%m_%Y-%H_%M_%S")
+workbook = xlsxwriter.Workbook('%s.xlsx' % dt_string)
+worksheet = workbook.add_worksheet()
+
+# comeca no 0
+row = 0
+col = 0
+worksheet.write(row, col, "Ponto X")
+worksheet.write(row, col + 1, "Ponto Y")
+worksheet.write(row, col + 2, "Distância(cm)")
+worksheet.write(row, col + 3, "Velocidade Especifica (cm/Segundos)")
+worksheet.write(row, col + 4, "Velocidade(cm/Segundos)")
+worksheet.write(row, col + 5, "Tempo(Segundos)")
+if (arena == 2):
+    worksheet.write(row, col + 6, "Braço")
+worksheet.write(row, col + 7, "Constantes")
+worksheet.write((row + 1), col + 7, fracao)
+row += 1
+linha_velocidade = int(row + fps + 5)
+
+# linha por linha
+while contador < len(historico_centro_de_massa):
+    worksheet.write(row, col, historico_centro_de_massa[contador][0])
+    worksheet.write(row, col + 1, historico_centro_de_massa[contador][1])
+    worksheet.write(row, col + 2,
+                    ('=(((((A%d)-(A%d))^2)+(((B%d)-(B%d))^2))^(1/2))*$H$2' % (row + 1, row, row + 1, row)))
+    worksheet.write(row, col + 3, ('=((C%d)*%d)' % (row + 1, fps)))
+    if (row >= linha_velocidade):
+        worksheet.write(row, col + 4, ('=SUM(C%d:C%d)' % (row - fps, row)))
+        linha_velocidade = int(row + fps)
+    worksheet.write(row, col + 5, (row - 1) / fps)
+    if (arena == 2):
+        worksheet.write(row, col + 6, posicao_braco[contador])
+
+    row += 1
+    contador += 1
+
+workbook.close()
+cv2.destroyAllWindows()
