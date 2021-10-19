@@ -7,4 +7,4 @@ Aluna e desenvolvedora Agatha Leyton
 
 Linguagem: Python
 
-Bibliotecas: OpenCV, Tkinter, 
+Bibliotecas: OpenCV, Tkinter, XlsxWriter
